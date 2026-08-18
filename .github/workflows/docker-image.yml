@@ -1,0 +1,84 @@
+name: Build Docker image
+
+# Tracks @openai/codex releases: the schedule polls npm and builds only when
+# a version without a published image appears. Pushes and manual dispatches
+# always (re)build, so Dockerfile changes reach :latest without waiting for
+# an upstream release.
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "@openai/codex version to build (default: npm latest)"
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-image
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - id: repo
+        name: Lowercase image name
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - id: version
+        name: Resolve @openai/codex version
+        env:
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          version="${REQUESTED:-$(npm view @openai/codex version)}"
+          echo "resolved @openai/codex version: ${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: decide
+        name: Skip scheduled runs when the version is already published
+        env:
+          IMAGE: ghcr.io/${{ steps.repo.outputs.name }}:${{ steps.version.outputs.version }}
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          elif docker manifest inspect "${IMAGE}" >/dev/null 2>&1; then
+            echo "${IMAGE} already exists; nothing to do."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-qemu-action@v3
+        if: steps.decide.outputs.build == 'true'
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.decide.outputs.build == 'true'
+
+      - uses: docker/build-push-action@v6
+        if: steps.decide.outputs.build == 'true'
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            CODEX_VERSION=${{ steps.version.outputs.version }}
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.name }}:latest
+            ghcr.io/${{ steps.repo.outputs.name }}:${{ steps.version.outputs.version }}

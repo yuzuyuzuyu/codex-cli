@@ -1,0 +1,63 @@
+# Local/dev compose file. Also the reference shape for the yuzuyu service
+# template. Differences on yuzuyu: no published port - consumers reach
+# ws://codex:4500 over a shared external network - and the service DOES get
+# the standard hourly image-update timer (recreation is cheap: state persists
+# in the codex_home volume and clients reconnect).
+#
+# Before first start: generate the WebSocket capability token the server
+# requires for non-loopback listeners (anything holding it can spend the
+# ChatGPT subscription):
+#
+#     openssl rand -hex 32 > ws-token
+#
+# Then log in once (device flow; tokens persist in the codex_home volume):
+#
+#     docker compose exec codex codex login --device-auth
+services:
+  codex:
+    image: ghcr.io/yuzuyuzuyu/codex-cli:latest
+    build: .
+    container_name: codex
+    restart: unless-stopped
+    # the CLI spawns child processes (sandbox helpers, MCP servers); reap them
+    init: true
+    command:
+      [
+        "codex",
+        "app-server",
+        "--listen",
+        "ws://0.0.0.0:4500",
+        "--ws-auth",
+        "capability-token",
+        "--ws-token-file",
+        "/run/secrets/codex_ws_token",
+      ]
+    volumes:
+      - codex_home:/home/codex/.codex
+    secrets:
+      - codex_ws_token
+    # host-loopback only for local dev; the yuzuyu template publishes nothing
+    ports:
+      - "127.0.0.1:4500:4500"
+    healthcheck:
+      # the app server serves /healthz and /readyz on the ws port; node is the
+      # only HTTP client in the slim image
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4500/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  codex_home:
+    name: codex_home
+
+secrets:
+  codex_ws_token:
+    file: ./ws-token

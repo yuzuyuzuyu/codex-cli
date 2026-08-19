@@ -1,14 +1,20 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.26.0@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
 # Minimal image for running `codex app-server` as a long-lived service.
 # The Codex CLI is a self-contained binary shipped through npm; node exists
-# only to run its launcher shim. lts-slim: every codex release triggers a
-# rebuild (see .github/workflows/docker-image.yml), which also refreshes the
-# base image.
-FROM node:lts-slim
+# only to run its launcher shim.
+#
+# Everything here is pinned exactly: syntax frontend and base image by
+# digest, codex by version. Renovate PRs the bumps (renovate.json), CI
+# proves them (.github/workflows/ci.yml), and merging publishes
+# (.github/workflows/docker-image.yml).
+FROM node:24.19.0-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03
 
-# CI passes the exact version resolved from npm so image tags and installed
-# version can never drift apart.
-ARG CODEX_VERSION=latest
+# CODEX_VERSION is the single source of truth for what gets built: CI reads
+# this pin to tag the published image, so tag and installed version can
+# never drift apart. The marker comment below is what Renovate's custom
+# manager matches (renovate.json).
+# renovate: datasource=npm depName=@openai/codex
+ARG CODEX_VERSION=0.148.0
 
 # ca-certificates: the codex binary validates TLS against the system trust
 # store, which node:slim does not ship (node itself uses bundled roots) -
@@ -20,6 +26,10 @@ ARG CODEX_VERSION=latest
 # and uses a bundled copy. (Whether bwrap can actually confine inside Docker
 # depends on the runtime's userns/seccomp settings - chat-style consumers
 # that never run commands don't care.)
+# apt versions are intentionally not pinned: Debian drops superseded point
+# releases from the archive, so version pins rot within weeks. The base
+# image digest freezes them instead; bumping that pin refreshes them, and
+# the weekly image scan covers the window in between.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates git bubblewrap \
     && rm -rf /var/lib/apt/lists/*

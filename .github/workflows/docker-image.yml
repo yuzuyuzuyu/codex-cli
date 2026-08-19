@@ -1,19 +1,21 @@
 name: Build Docker image
 
-# Tracks @openai/codex releases: the schedule polls npm and builds only when
-# a version without a published image appears. Pushes and manual dispatches
-# always (re)build, so Dockerfile changes reach :latest without waiting for
-# an upstream release.
+# Publishes on merge. The CODEX_VERSION pin in the Dockerfile is the single
+# source of truth: Renovate PRs the bump, CI proves it, and landing it here
+# builds and pushes :latest plus the version tag. Manual dispatch accepts a
+# version override as an escape hatch (the override is passed as a build arg
+# and tagged as given, bypassing the pin).
 
 on:
-  schedule:
-    - cron: "17 */6 * * *"
   push:
     branches: [main]
+    paths:
+      - Dockerfile
+      - .github/workflows/docker-image.yml
   workflow_dispatch:
     inputs:
       version:
-        description: "@openai/codex version to build (default: npm latest)"
+        description: "@openai/codex version to build (default: the Dockerfile pin)"
         required: false
 
 permissions:
@@ -28,7 +30,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -37,42 +39,26 @@ jobs:
         run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
       - id: version
-        name: Resolve @openai/codex version
+        name: Read the @openai/codex version pin from the Dockerfile
         env:
           REQUESTED: ${{ inputs.version }}
         run: |
-          version="${REQUESTED:-$(npm view @openai/codex version)}"
+          pinned=$(sed -n 's/^ARG CODEX_VERSION=//p' Dockerfile)
+          version="${REQUESTED:-$pinned}"
           echo "resolved @openai/codex version: ${version}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - id: decide
-        name: Skip scheduled runs when the version is already published
-        env:
-          IMAGE: ghcr.io/${{ steps.repo.outputs.name }}:${{ steps.version.outputs.version }}
-        run: |
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "build=true" >> "$GITHUB_OUTPUT"
-          elif docker manifest inspect "${IMAGE}" >/dev/null 2>&1; then
-            echo "${IMAGE} already exists; nothing to do."
-            echo "build=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "build=true" >> "$GITHUB_OUTPUT"
-          fi
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
 
-      - uses: docker/setup-qemu-action@v3
-        if: steps.decide.outputs.build == 'true'
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
-      - uses: docker/setup-buildx-action@v3
-        if: steps.decide.outputs.build == 'true'
-
-      - uses: docker/build-push-action@v6
-        if: steps.decide.outputs.build == 'true'
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64

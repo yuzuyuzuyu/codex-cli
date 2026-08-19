@@ -1,8 +1,9 @@
 # Local/dev compose file. Also the reference shape for the yuzuyu service
 # template. Differences on yuzuyu: no published port - consumers reach
-# ws://codex:4500 over a shared external network - and the service DOES get
-# the standard hourly image-update timer (recreation is cheap: state persists
-# in the codex_home volume and clients reconnect).
+# ws://codex:4500 over a shared external network. The image is pinned by
+# digest; when a new image publishes, Renovate PRs the pin bump, and applying
+# it recreates the container (cheap: state persists in the codex_home volume
+# and clients reconnect).
 #
 # Before first start: generate the WebSocket capability token the server
 # requires for non-loopback listeners (anything holding it can spend the
@@ -15,7 +16,7 @@
 #     docker compose exec codex codex login --device-auth
 services:
   codex:
-    image: ghcr.io/yuzuyuzuyu/codex-cli:latest
+    image: ghcr.io/yuzuyuzuyu/codex-cli:0.148.0@sha256:e48f2c32469e781eda7c46e9a8b6977d6219a028bf76e0f826108dd1ac707204
     build: .
     container_name: codex
     restart: unless-stopped

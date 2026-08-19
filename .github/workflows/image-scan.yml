@@ -1,0 +1,52 @@
+name: Image CVE scan
+
+# Weekly Trivy scan of the published image. Pinning means the image only
+# changes when a PR merges, so a CVE disclosed between merges would
+# otherwise sit unnoticed until the next bump. A finding fails the run
+# (the human signal) and lands in the Security tab as SARIF.
+#
+# ignore-unfixed keeps the signal actionable: Debian always carries some
+# HIGH findings with no fix available, and a red run nobody can act on
+# trains people to ignore red runs. Once a fix exists upstream, the scan
+# fails and the remedy is merging whatever Renovate PR refreshes the base
+# image (or rebuilding via workflow dispatch to pick up new apt versions).
+
+on:
+  schedule:
+    - cron: "41 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - id: repo
+        name: Lowercase image name
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ steps.repo.outputs.name }}:latest
+          format: sarif
+          output: trivy.sarif
+          severity: CRITICAL,HIGH
+          limit-severities-for-sarif: true
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        if: always()
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-image

@@ -1,0 +1,51 @@
+name: CI
+
+# The PR gate automerge waits on: build the image exactly as it would
+# publish, run it, and check the installed codex version matches the
+# Dockerfile pin. Branch protection on main requires the `build` check, so
+# it must run on every PR - do not add a paths filter, or PRs that skip it
+# (e.g. compose-only digest bumps) can never automerge.
+#
+# PRs build linux/amd64 only; arm64 goes through QEMU and would triple the
+# gate's runtime. The publish workflow builds both, so an arm64-only
+# breakage surfaces there, after merge, as a red run for a human.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          load: true
+          tags: codex-cli:ci
+
+      - name: Smoke test the built image
+        run: |
+          pinned=$(sed -n 's/^ARG CODEX_VERSION=//p' Dockerfile)
+          actual=$(docker run --rm codex-cli:ci codex --version)
+          echo "pinned: ${pinned}"
+          echo "actual: ${actual}"
+          case "$actual" in
+            *"$pinned"*) ;;
+            *) echo "installed codex version does not match the Dockerfile pin"; exit 1 ;;
+          esac
+
+      - name: Validate compose file
+        run: |
+          # the compose file declares ws-token as a secret source; the real
+          # token is gitignored, so give it a placeholder to validate against
+          echo placeholder > ws-token
+          docker compose config -q

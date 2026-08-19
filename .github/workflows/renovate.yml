@@ -1,0 +1,64 @@
+name: Renovate
+
+# Self-hosted Renovate runner. It replaces the old npm poll: every upstream
+# release (codex, base image, actions, the published compose image) becomes
+# a PR, CI proves it, and renovate.json decides what automerges.
+#
+# Auth is a GitHub App, not GITHUB_TOKEN, for one load-bearing reason: PRs
+# opened with GITHUB_TOKEN do not trigger workflows, so the CI gate would
+# never run and nothing could automerge.
+#
+# One-time setup (also in README):
+#   - GitHub App with permissions: Checks (read), Commit statuses (read),
+#     Contents (read/write), Issues (read/write), Metadata (read),
+#     Pull requests (read/write), Workflows (read/write). No webhook.
+#     Workflows read/write matters - without it the app cannot push the
+#     action-digest bumps under .github/workflows/.
+#   - Install the app on this repo.
+#   - Repo variable RENOVATE_APP_ID, repo secret RENOVATE_APP_PRIVATE_KEY.
+#   - Repo setting "Allow auto-merge" on, plus a branch ruleset on main
+#     requiring the CI `build` check - that pairing is what makes
+#     "green PRs merge themselves, red ones wait" enforceable.
+
+on:
+  schedule:
+    - cron: "29 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    steps:
+      - id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.RENOVATE_APP_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+
+      - id: bot
+        name: Resolve the app's bot user id
+        # the commit author email needs the bot user's numeric id; only the
+        # slug is an action output
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: echo "id=$(gh api "/users/${SLUG}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+
+      - uses: renovatebot/github-action@e09d604f8f803bb527bd8321ed5be06c460b8682 # v46.2.2
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+        env:
+          # repo-level behavior (automerge rules, custom managers) lives in
+          # renovate.json; this block is only runner wiring
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_USERNAME: ${{ steps.app-token.outputs.app-slug }}[bot]
+          RENOVATE_GIT_AUTHOR: ${{ steps.app-token.outputs.app-slug }}[bot] <${{ steps.bot.outputs.id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>
+          RENOVATE_ONBOARDING: "false"
+          LOG_LEVEL: info

@@ -64,8 +64,9 @@ would not run and nothing could automerge.
    (read/write). Workflows write is what lets it bump action digests under
    `.github/workflows/`.
 2. Install the app on this repository.
-3. Add the repository variable `RENOVATE_APP_ID` (the app ID) and the
-   secret `RENOVATE_APP_PRIVATE_KEY` (the app's PEM private key). Also add
+3. Add the repository variable `RENOVATE_APP_CLIENT_ID` (the app's Client
+   ID, shown on its settings page) and the secret `RENOVATE_APP_PRIVATE_KEY`
+   (the app's PEM private key). Also add
    the secret `RENOVATE_GITHUB_LOOKUP_TOKEN`: a scope-less classic PAT of a
    user account (the fleet uses the `yuzuyu-bot` machine user). Renovate uses
    it only for github.com datasource lookups, because GitHub applies an

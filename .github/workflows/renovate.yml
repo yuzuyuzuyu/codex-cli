@@ -15,7 +15,8 @@ name: Renovate
 #     Workflows read/write matters - without it the app cannot push the
 #     action-digest bumps under .github/workflows/.
 #   - Install the app on this repo.
-#   - Repo secrets RENOVATE_APP_ID and RENOVATE_APP_PRIVATE_KEY.
+#   - Repo variable RENOVATE_APP_CLIENT_ID (the app's Client ID, shown on
+#     its settings page) and repo secret RENOVATE_APP_PRIVATE_KEY.
 #   - Repo setting "Allow auto-merge" on, plus a branch ruleset on main
 #     requiring the CI `build` check - that pairing is what makes
 #     "green PRs merge themselves, red ones wait" enforceable.
@@ -32,6 +33,14 @@ permissions:
 concurrency:
   group: renovate
   cancel-in-progress: false
+
+env:
+  # Exact Renovate engine pin; the action's own default is the floating `44`
+  # tag. Renovate bumps it weekly through the customManagers:githubActionsVersions
+  # preset in the repo's Renovate config (the annotation must stay on the line
+  # directly above the variable).
+  # renovate: datasource=docker depName=ghcr.io/renovatebot/renovate
+  RENOVATE_VERSION: 44.35.4
 
 jobs:
   renovate:
@@ -54,7 +63,7 @@ jobs:
       - id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ secrets.RENOVATE_APP_ID }}
+          client-id: ${{ vars.RENOVATE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
 
       - id: bot
@@ -91,6 +100,7 @@ jobs:
       - uses: renovatebot/github-action@e09d604f8f803bb527bd8321ed5be06c460b8682 # v46.2.2
         with:
           token: ${{ steps.app-token.outputs.token }}
+          renovate-version: ${{ env.RENOVATE_VERSION }}
         env:
           # repo-level behavior (automerge rules, custom managers) lives in
           # renovate.json; this block is only runner wiring

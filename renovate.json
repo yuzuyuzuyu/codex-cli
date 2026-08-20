@@ -1,8 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": "Everything is pinned exactly; Renovate owns the bumps. Green minor/patch and digest PRs merge themselves; majors and failing PRs wait for a human. Run by .github/workflows/renovate.yml.",
-  "extends": ["config:best-practices"],
+  "extends": ["config:best-practices", "customManagers:githubActionsVersions"],
   "minimumReleaseAge": "3 days",
+  "osvVulnerabilityAlerts": true,
   "packageRules": [
     {
       "description": "Automerge minor/patch bumps and pin/digest refreshes once CI is green",
@@ -24,6 +25,17 @@
       "description": "Our own published image needs no cooldown - digest re-pins should land immediately",
       "matchPackageNames": ["ghcr.io/yuzuyuzuyu/codex-cli"],
       "minimumReleaseAge": null
+    },
+    {
+      "description": "Pins and digest refreshes point at code that already shipped - no soak needed",
+      "matchUpdateTypes": ["pin", "pinDigest", "digest"],
+      "minimumReleaseAge": null
+    },
+    {
+      "description": "Renovate engine: several releases a day, so take the weekly one; no digest pin because the annotated RENOVATE_VERSION env var holds a plain tag",
+      "matchDepNames": ["ghcr.io/renovatebot/renovate"],
+      "schedule": ["before 6am on monday"],
+      "pinDigests": false
     }
   ],
   "customManagers": [

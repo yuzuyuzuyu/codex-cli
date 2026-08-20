@@ -65,7 +65,12 @@ would not run and nothing could automerge.
    `.github/workflows/`.
 2. Install the app on this repository.
 3. Add the repository variable `RENOVATE_APP_ID` (the app ID) and the
-   secret `RENOVATE_APP_PRIVATE_KEY` (the app's PEM private key).
+   secret `RENOVATE_APP_PRIVATE_KEY` (the app's PEM private key). Also add
+   the secret `RENOVATE_GITHUB_LOOKUP_TOKEN`: a scope-less classic PAT of a
+   user account (the fleet uses the `yuzuyu-bot` machine user). Renovate uses
+   it only for github.com datasource lookups, because GitHub applies an
+   organisation's IP allow list to App tokens even for public repos and
+   `aquasecurity/trivy-action` lives in one.
 4. In repository settings, enable "Allow auto-merge", and add a branch
    ruleset on `main` requiring the `build` status check from CI (repo
    admins as bypass actors, so direct pushes still work). Skipping this

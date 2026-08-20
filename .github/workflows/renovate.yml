@@ -15,7 +15,7 @@ name: Renovate
 #     Workflows read/write matters - without it the app cannot push the
 #     action-digest bumps under .github/workflows/.
 #   - Install the app on this repo.
-#   - Repo variable RENOVATE_APP_ID, repo secret RENOVATE_APP_PRIVATE_KEY.
+#   - Repo secrets RENOVATE_APP_ID and RENOVATE_APP_PRIVATE_KEY.
 #   - Repo setting "Allow auto-merge" on, plus a branch ruleset on main
 #     requiring the CI `build` check - that pairing is what makes
 #     "green PRs merge themselves, red ones wait" enforceable.
@@ -39,7 +39,7 @@ jobs:
       - id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ vars.RENOVATE_APP_ID }}
+          app-id: ${{ secrets.RENOVATE_APP_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
 
       - id: bot

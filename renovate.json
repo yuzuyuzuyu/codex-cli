@@ -2,6 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": "Everything is pinned exactly; Renovate owns the bumps. Green minor/patch and digest PRs merge themselves; majors and failing PRs wait for a human. Run by .github/workflows/renovate.yml.",
   "extends": ["config:best-practices"],
+  "minimumReleaseAge": "3 days",
   "packageRules": [
     {
       "description": "Automerge minor/patch bumps and pin/digest refreshes once CI is green",
@@ -12,6 +13,17 @@
       "description": "Majors wait for a human",
       "matchUpdateTypes": ["major"],
       "automerge": false
+    },
+    {
+      "description": "0.x minors are breaking by semver convention (codex will never hit the major rule until 1.0) - hold them for a human",
+      "matchCurrentVersion": "<1.0.0",
+      "matchUpdateTypes": ["minor"],
+      "automerge": false
+    },
+    {
+      "description": "Our own published image needs no cooldown - digest re-pins should land immediately",
+      "matchPackageNames": ["ghcr.io/yuzuyuzuyu/codex-cli"],
+      "minimumReleaseAge": null
     }
   ],
   "customManagers": [

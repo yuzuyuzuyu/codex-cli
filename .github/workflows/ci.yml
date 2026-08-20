@@ -43,6 +43,31 @@ jobs:
             *) echo "installed codex version does not match the Dockerfile pin"; exit 1 ;;
           esac
 
+      - name: Boot app-server and wait for /healthz
+        # A version string proves the install, not the service. Run the image
+        # the way compose does (capability-token auth included) and require
+        # /healthz to come up, so a codex release that breaks app-server
+        # startup or its flags cannot automerge green.
+        run: |
+          openssl rand -hex 32 > ws-token
+          docker run -d --name codex-ci --init \
+            -v "$PWD/ws-token:/run/secrets/codex_ws_token:ro" \
+            -p 127.0.0.1:4500:4500 \
+            codex-cli:ci codex app-server --listen ws://0.0.0.0:4500 \
+              --ws-auth capability-token --ws-token-file /run/secrets/codex_ws_token
+          ok=0
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4500/healthz >/dev/null 2>&1; then ok=1; break; fi
+            if [ "$(docker inspect -f '{{.State.Running}}' codex-ci)" != "true" ]; then break; fi
+            sleep 2
+          done
+          docker logs codex-ci
+          docker rm -f codex-ci >/dev/null
+          if [ "$ok" != 1 ]; then
+            echo "app-server never answered /healthz"
+            exit 1
+          fi
+
       - name: Validate compose file
         run: |
           # the compose file declares ws-token as a secret source; the real

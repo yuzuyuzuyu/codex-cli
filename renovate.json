@@ -3,17 +3,20 @@
   "description": "Everything is pinned exactly; Renovate owns the bumps. Green minor/patch and digest PRs merge themselves; majors and failing PRs wait for a human. Run by .github/workflows/renovate.yml.",
   "extends": ["config:best-practices", "customManagers:githubActionsVersions"],
   "minimumReleaseAge": "3 days",
+  "dependencyDashboard": true,
   "osvVulnerabilityAlerts": true,
   "packageRules": [
     {
-      "description": "Automerge minor/patch bumps and pin/digest refreshes once CI is green",
+      "description": "Automerge minor/patch bumps and pin/digest refreshes once CI is green; rebase onto main first so CI ran against the current base",
       "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest"],
-      "automerge": true
+      "automerge": true,
+      "rebaseWhen": "behind-base-branch"
     },
     {
-      "description": "Majors wait for a human",
+      "description": "Majors wait for a human and soak a week",
       "matchUpdateTypes": ["major"],
-      "automerge": false
+      "automerge": false,
+      "minimumReleaseAge": "7 days"
     },
     {
       "description": "0.x minors are breaking by semver convention (codex will never hit the major rule until 1.0) - hold them for a human",
@@ -27,9 +30,10 @@
       "minimumReleaseAge": null
     },
     {
-      "description": "Pins and digest refreshes point at code that already shipped - no soak needed",
-      "matchUpdateTypes": ["pin", "pinDigest", "digest"],
-      "minimumReleaseAge": null
+      "description": "Supply-chain soak: never automerge a GitHub Actions digest change. A moved tag on a SHA-pinned action shows up as a digest update; a human compares it against the upstream release first",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["digest", "pinDigest"],
+      "automerge": false
     },
     {
       "description": "Renovate engine: several releases a day, so take the weekly one; no digest pin because the annotated RENOVATE_VERSION env var holds a plain tag",

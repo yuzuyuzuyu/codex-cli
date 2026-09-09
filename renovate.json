@@ -1,55 +1,103 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "Everything is pinned exactly; Renovate owns the bumps. Green minor/patch and digest PRs merge themselves; majors and failing PRs wait for a human. Run by .github/workflows/renovate.yml.",
-  "extends": ["config:best-practices", "customManagers:githubActionsVersions"],
+  "description": "Renovate owns dependency updates. Tested updates merge after the release soak; unresolved maintenance is reported by the maintenance workflows. See .github/MAINTENANCE.md.",
+  "extends": [
+    "config:best-practices",
+    "customManagers:githubActionsVersions"
+  ],
   "minimumReleaseAge": "3 days",
   "dependencyDashboard": true,
   "osvVulnerabilityAlerts": true,
   "packageRules": [
     {
       "description": "Automerge minor/patch bumps and pin/digest refreshes once CI is green; rebase onto main first so CI ran against the current base",
-      "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest"],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "pinDigest",
+        "digest"
+      ],
       "automerge": true,
       "rebaseWhen": "behind-base-branch"
     },
     {
-      "description": "Majors wait for a human and soak a week",
-      "matchUpdateTypes": ["major"],
-      "automerge": false,
-      "minimumReleaseAge": "7 days"
+      "description": "Attempt major updates automatically after a week; CI must pass before merge",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": true,
+      "minimumReleaseAge": "7 days",
+      "dependencyDashboardApproval": false
     },
     {
-      "description": "0.x minors are breaking by semver convention (codex will never hit the major rule until 1.0) - hold them for a human",
+      "description": "Pre-1.0 updates use the same required CI gate",
       "matchCurrentVersion": "<1.0.0",
-      "matchUpdateTypes": ["minor"],
-      "automerge": false
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": true
     },
     {
       "description": "Our own published image needs no cooldown - digest re-pins should land immediately",
-      "matchPackageNames": ["ghcr.io/yuzuyuzuyu/codex-cli"],
+      "matchPackageNames": [
+        "ghcr.io/yuzuyuzuyu/codex-cli"
+      ],
       "minimumReleaseAge": null
     },
     {
       "description": "Supply-chain soak: never automerge a GitHub Actions digest change. A moved tag on a SHA-pinned action shows up as a digest update; a human compares it against the upstream release first",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["digest", "pinDigest"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "digest",
+        "pinDigest"
+      ],
       "automerge": false
     },
     {
       "description": "Renovate engine: several releases a day, so take the weekly one; no digest pin because the annotated RENOVATE_VERSION env var holds a plain tag",
-      "matchDepNames": ["ghcr.io/renovatebot/renovate"],
-      "schedule": ["before 6am on monday"],
+      "matchDepNames": [
+        "ghcr.io/renovatebot/renovate"
+      ],
+      "schedule": [
+        "before 6am on monday"
+      ],
       "pinDigests": false
+    },
+    {
+      "description": "Keep Node image, CI runtime, and Node types in one tested PR",
+      "matchPackageNames": [
+        "node",
+        "@types/node"
+      ],
+      "groupName": "Node runtime"
     }
   ],
   "customManagers": [
     {
       "customType": "regex",
       "description": "Bump the CODEX_VERSION pin in the Dockerfile (the marker comment above the ARG names the datasource)",
-      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z0-9-]+) depName=(?<depName>\\S+)\\nARG CODEX_VERSION=(?<currentValue>\\S+)"
       ]
     }
-  ]
+  ],
+  "timezone": "Australia/Melbourne",
+  "platformAutomerge": false,
+  "rebaseWhen": "behind-base-branch",
+  "prHourlyLimit": 0,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true,
+    "rebaseWhen": "behind-base-branch"
+  },
+  "automergeType": "pr",
+  "vulnerabilityAlerts": {
+    "automerge": true
+  }
 }

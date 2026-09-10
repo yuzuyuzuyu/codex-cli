@@ -31,6 +31,7 @@ ARG CODEX_VERSION=0.148.0
 # image digest freezes them instead; bumping that pin refreshes them, and
 # the weekly image scan covers the window in between.
 RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
     && apt-get install -y --no-install-recommends ca-certificates git bubblewrap \
     && rm -rf /var/lib/apt/lists/*
 

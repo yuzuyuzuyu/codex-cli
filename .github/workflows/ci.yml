@@ -11,6 +11,8 @@ name: CI
 # breakage surfaces there, after merge, as a red run for a human.
 
 on:
+  push:
+    branches: [main]
   pull_request:
 
 permissions:

@@ -12,6 +12,7 @@ on:
     paths:
       - Dockerfile
       - .github/workflows/docker-image.yml
+      - .github/workflows/ci.yml
   workflow_dispatch:
     inputs:
       version:

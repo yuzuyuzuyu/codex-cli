@@ -38,6 +38,11 @@ RUN apt-get update \
 RUN npm install -g "@openai/codex@${CODEX_VERSION}" \
     && npm cache clean --force
 
+# Package managers are build tools; this runtime starts Node directly.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-v* \
+  && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+    /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg
+
 # The node base image owns UID 1000 as "node"; replace it so the runtime user
 # is meaningfully named and matches the yuzuyu pre-chowned-mount convention.
 # Pre-create ~/.codex so a fresh volume inherits UID 1000 instead of being

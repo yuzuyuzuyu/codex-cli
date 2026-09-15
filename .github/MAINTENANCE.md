@@ -43,3 +43,11 @@ The watchdog retries current-revision workflow failures once, then reports
 persistent failures in one automatically resolved issue. Publication verifies
 that CI passed and the revision is still current before using registry or
 production credentials. Build/test failures remain blocking checks.
+
+## Actions usage
+
+Renovate runs once daily at 16:xx UTC (02:xx AEST / 03:xx AEDT), including
+Monday's before-04:00 lockfile and before-06:00 engine-update windows. Manual dispatch remains available
+for urgent updates. Release waiting periods, current-base rebases, and the
+complete successful CI requirement still apply. Daily security scans and
+post-build scans continue independently of Renovate's schedule.

@@ -23,7 +23,8 @@ name: Renovate
 
 on:
   schedule:
-    - cron: "29 */6 * * *"
+    # Daily at 02:xx/03:xx Melbourne time, inside both Monday maintenance windows.
+    - cron: "29 16 * * *"
   workflow_dispatch:
 
 permissions:

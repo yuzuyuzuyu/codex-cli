@@ -31,8 +31,8 @@ Everything this repo consumes is pinned exactly:
 - the published image referenced by `docker-compose.yml`: version tag + digest
 - every GitHub Action: commit SHA
 
-A self-hosted Renovate runner (`.github/workflows/renovate.yml`, every six
-hours) turns each upstream release into a PR. `ci.yml` gates every PR: it
+A self-hosted Renovate runner (`.github/workflows/renovate.yml`, daily) turns
+each upstream release into a PR. `ci.yml` gates every PR: it
 builds the image, runs it, and checks the installed codex version against
 the pin. Green minor/patch and digest PRs automerge; majors and red PRs
 wait for a human (`renovate.json`). Merging a Dockerfile bump triggers

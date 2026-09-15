@@ -86,6 +86,8 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          cache-from: type=gha,scope=publish
+          cache-to: type=gha,scope=publish,mode=max
           build-args: |
             CODEX_VERSION=${{ steps.version.outputs.version }}
           tags: |

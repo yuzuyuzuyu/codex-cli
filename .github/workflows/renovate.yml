@@ -1,30 +1,10 @@
 name: Renovate
 
-# Self-hosted Renovate runner. It replaces the old npm poll: every upstream
-# release (codex, base image, actions, the published compose image) becomes
-# a PR, CI proves it, and renovate.json decides what automerges.
-#
-# Auth is a GitHub App, not GITHUB_TOKEN, for one load-bearing reason: PRs
-# opened with GITHUB_TOKEN do not trigger workflows, so the CI gate would
-# never run and nothing could automerge.
-#
-# One-time setup (also in README):
-#   - GitHub App with permissions: Checks (read), Commit statuses (read),
-#     Contents (read/write), Issues (read/write), Metadata (read),
-#     Pull requests (read/write), Workflows (read/write). No webhook.
-#     Workflows read/write matters - without it the app cannot push the
-#     action-digest bumps under .github/workflows/.
-#   - Install the app on this repo.
-#   - Repo variable RENOVATE_APP_CLIENT_ID (the app's Client ID, shown on
-#     its settings page) and repo secret RENOVATE_APP_PRIVATE_KEY.
-#   - Repo setting "Allow auto-merge" on, plus a branch ruleset on main
-#     requiring the CI `build` check - that pairing is what makes
-#     "green PRs merge themselves, red ones wait" enforceable.
 
 on:
   schedule:
-    # Daily at 02:xx/03:xx Melbourne time, inside both Monday maintenance windows.
-    - cron: "29 16 * * *"
+    # Hourly; keep the minute offset to spread runner load.
+    - cron: "29 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -35,78 +15,12 @@ concurrency:
   group: renovate
   cancel-in-progress: false
 
-env:
-  # Exact Renovate engine pin; the action's own default is the floating `44`
-  # tag. Renovate bumps it weekly through the customManagers:githubActionsVersions
-  # preset in the repo's Renovate config (the annotation must stay on the line
-  # directly above the variable).
-  # renovate: datasource=docker depName=ghcr.io/renovatebot/renovate
-  RENOVATE_VERSION: 44.35.4
-
 jobs:
   renovate:
-    runs-on: ubuntu-latest
-    steps:
-      # GitHub disables cron triggers after 60 days without repository
-      # activity. Re-enabling an active workflow resets that clock, so this
-      # keeps every scheduled workflow alive while leaving manually disabled
-      # ones alone.
-      - name: Keep scheduled workflows alive
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows" \
-            --jq '.workflows[] | select(.state == "active" or .state == "disabled_inactivity") | .id' \
-          | while read -r id; do
-              gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/${id}/enable"
-            done
-
-      - id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ vars.RENOVATE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
-
-      - id: bot
-        name: Resolve the app's bot user id
-        # the commit author email needs the bot user's numeric id; only the
-        # slug is an action output
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          SLUG: ${{ steps.app-token.outputs.app-slug }}
-        run: echo "id=$(gh api "/users/${SLUG}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
-
-      # GitHub's GraphQL API enforces an organisation's IP allow list against
-      # GitHub App tokens even for that org's public repos (aquasecurity has
-      # one), so the App token's github-tags lookup for aquasecurity/trivy-action
-      # fails with "IP allow list enabled" and the action is never updated.
-      # User tokens are not subject to it, so these host rules route only the
-      # github.com datasource lookups through a scope-less classic PAT of the
-      # yuzuyu-bot machine user (secret RENOVATE_GITHUB_LOOKUP_TOKEN; same
-      # token in every repo of the fleet). The App token still does all
-      # platform work (PRs, merges).
-      - name: Route github.com datasource lookups through a user token
-        env:
-          LOOKUP_TOKEN: ${{ secrets.RENOVATE_GITHUB_LOOKUP_TOKEN }}
-        run: |
-          if [ -z "$LOOKUP_TOKEN" ]; then
-            echo "::warning::RENOVATE_GITHUB_LOOKUP_TOKEN is not set; github-tags lookups for orgs with an IP allow list (aquasecurity/trivy-action) will fail"
-            exit 0
-          fi
-          rules=$(jq -cn --arg t "$LOOKUP_TOKEN" \
-            '["github-tags", "github-releases", "github-changelog"]
-             | map({hostType: ., matchHost: "api.github.com", token: $t})')
-          echo "RENOVATE_HOST_RULES=$rules" >> "$GITHUB_ENV"
-
-      - uses: renovatebot/github-action@dcfba84a42d1b5d5e49bf131b1bf53511851a123 # v46.3.1
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          renovate-version: ${{ env.RENOVATE_VERSION }}
-        env:
-          # repo-level behavior (automerge rules, custom managers) lives in
-          # renovate.json; this block is only runner wiring
-          RENOVATE_REPOSITORIES: ${{ github.repository }}
-          RENOVATE_USERNAME: ${{ steps.app-token.outputs.app-slug }}[bot]
-          RENOVATE_GIT_AUTHOR: ${{ steps.app-token.outputs.app-slug }}[bot] <${{ steps.bot.outputs.id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>
-          RENOVATE_ONBOARDING: "false"
-          LOG_LEVEL: info
+    uses: yuzuyuzuyu/repo-automation/.github/workflows/renovate-runner.yml@c691d5f2b7a126cdbbbe62811329ca24f8b643a9 # v1.0.0
+    with:
+      app-client-id: ${{ vars.RENOVATE_APP_CLIENT_ID }}
+      native-automerge: true
+    secrets:
+      RENOVATE_APP_PRIVATE_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+      RENOVATE_GITHUB_LOOKUP_TOKEN: ${{ secrets.RENOVATE_GITHUB_LOOKUP_TOKEN }}

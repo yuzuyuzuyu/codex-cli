@@ -1,0 +1,30 @@
+name: Dependency update safety
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+  status:
+  workflow_run:
+    workflows: [Renovate]
+    types: [completed]
+  workflow_dispatch:
+
+# Runs use trusted default-branch code and GitHub metadata only. Never check
+# out a PR head or download PR artifacts in this privileged workflow.
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
+concurrency:
+  group: dependency-update-safety
+  cancel-in-progress: false
+
+
+jobs:
+  reconcile:
+    if: github.event_name != 'status' || startsWith(github.event.context, 'renovate/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: yuzuyuzuyu/repo-automation/actions/readiness@c691d5f2b7a126cdbbbe62811329ca24f8b643a9 # v1.0.0

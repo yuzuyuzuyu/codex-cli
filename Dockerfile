@@ -7,7 +7,7 @@
 # digest, codex by version. Renovate PRs the bumps (renovate.json), CI
 # proves them (.github/workflows/ci.yml), and merging publishes
 # (.github/workflows/docker-image.yml).
-FROM node:24.21.0-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
+FROM node:24.22.0-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
 
 # CODEX_VERSION is the single source of truth for what gets built: CI reads
 # this pin to tag the published image, so tag and installed version can

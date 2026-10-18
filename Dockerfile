@@ -14,7 +14,7 @@ FROM node:24.22.0-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf745
 # never drift apart. The marker comment below is what Renovate's custom
 # manager matches (renovate.json).
 # renovate: datasource=npm depName=@openai/codex
-ARG CODEX_VERSION=0.162.1
+ARG CODEX_VERSION=0.163.0
 
 # ca-certificates: the codex binary validates TLS against the system trust
 # store, which node:slim does not ship (node itself uses bundled roots) -

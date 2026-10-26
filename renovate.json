@@ -56,17 +56,5 @@
         "github>yuzuyuzuyu/repo-automation:age-7-days#v1.0.16"
       ]
     }
-  ],
-  "customManagers": [
-    {
-      "customType": "regex",
-      "description": "Bump the CODEX_VERSION pin in the Dockerfile (the marker comment above the ARG names the datasource)",
-      "managerFilePatterns": [
-        "/(^|/)Dockerfile$/"
-      ],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>[a-z0-9-]+) depName=(?<depName>\\S+)\\nARG CODEX_VERSION=(?<currentValue>\\S+)"
-      ]
-    }
   ]
 }

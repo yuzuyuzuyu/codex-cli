@@ -5,10 +5,10 @@ service (JSON-RPC over WebSocket), so a ChatGPT subscription can be used
 through the official app-server protocol.
 
 CI publishes `ghcr.io/yuzuyuzuyu/codex-cli` (linux/amd64 + linux/arm64) on
-every merge that touches the Dockerfile, tagged `latest` plus the exact
+every merge that touches the image build or package lock, tagged `latest` plus the exact
 `@openai/codex` version installed. The version comes from the
-`ARG CODEX_VERSION` pin in the Dockerfile, so tag and contents cannot
-drift; manual dispatch accepts a version override.
+`package.json` pin and integrity-checked `package-lock.json`. Manual dispatch
+rebuilds that reviewed version; an optional version input must match the lock.
 
 Persistent state (ChatGPT login, config, threads) lives in
 `/home/codex/.codex`, so mount a volume there. The server requires WebSocket
@@ -24,9 +24,10 @@ docker compose exec codex codex login --device-auth   # once; persists in the vo
 
 ## Dependency pinning and updates
 
-Everything this repo consumes is pinned exactly:
+Application and build dependencies are pinned:
 
-- `@openai/codex`: exact version in the Dockerfile `ARG CODEX_VERSION` pin
+- `@openai/codex` and platform binaries: exact versions and integrity hashes in the npm lock
+- Buildx, BuildKit and QEMU: explicit versions, with image digests
 - base image and Dockerfile syntax frontend: version tag + digest
 - the published image referenced by `docker-compose.yml`: version tag + digest
 - every GitHub Action: commit SHA
@@ -35,7 +36,7 @@ A self-hosted Renovate runner (`.github/workflows/renovate.yml`, daily) turns
 each upstream release into a PR. `ci.yml` gates every PR: it
 builds the image, runs it, and checks the installed codex version against
 the pin. Green minor/patch and digest PRs automerge; majors and red PRs
-wait for a human (`renovate.json`). Merging a Dockerfile bump triggers
+wait for a human (`renovate.json`). Merging an image or package-lock bump triggers
 `docker-image.yml`, which publishes with the pinned version as the tag,
 after which Renovate PRs the matching digest bump into
 `docker-compose.yml`.
@@ -46,11 +47,15 @@ fails the run and lands in the Security tab; the remedy is merging the
 Renovate PR that refreshes the base image, or dispatching a rebuild to pick
 up new apt versions.
 
-Two deliberate gaps: apt packages carry no version pins, because Debian
-drops superseded point releases from its archive and such pins break
-builds within weeks. The base image digest freezes them instead. And
-nothing here is built from source, so there are no version+checksum pins
-to maintain.
+The npm resolver waits three days before selecting new releases, including
+transitive platform packages. Container installs use `npm ci --ignore-scripts`
+and verify lockfile integrity. The shared runner retains third-party Docker
+digests through their three-day observation period even when tags move; major
+versions retain the seven-day gate. Our published image needs no second delay.
+
+APT packages intentionally come from authenticated Debian repositories during
+rebuilds so security fixes remain available. The base digest fixes the starting
+image, not later APT downloads. CI and image scanning remain required.
 
 ### One-time setup
 

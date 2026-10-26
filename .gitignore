@@ -1,2 +1,4 @@
 # local WebSocket capability token (see docker-compose.yml)
 ws-token
+
+node_modules/

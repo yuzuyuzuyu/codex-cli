@@ -1,0 +1,7 @@
+{
+  "name": "codex-service-image",
+  "private": true,
+  "dependencies": {
+    "@openai/codex": "0.164.0"
+  }
+}

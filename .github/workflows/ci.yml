@@ -2,7 +2,7 @@ name: CI
 
 # The PR gate automerge waits on: build the image exactly as it would
 # publish, run it, and check the installed codex version matches the
-# Dockerfile pin. Branch protection on main requires the `build` check, so
+# package lock. Branch protection on main requires the `build` check, so
 # it must run on every PR - do not add a paths filter, or PRs that skip it
 # (e.g. compose-only digest bumps) can never automerge.
 #
@@ -32,6 +32,11 @@ jobs:
           persist-credentials: false
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          # renovate: datasource=github-releases depName=docker/buildx
+          version: v0.38.1
+          # renovate: datasource=docker depName=moby/buildkit
+          driver-opts: image=moby/buildkit:v0.34.1@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c
 
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -43,13 +48,13 @@ jobs:
 
       - name: Smoke test the built image
         run: |
-          pinned=$(sed -n 's/^ARG CODEX_VERSION=//p' Dockerfile)
+          pinned=$(jq -r '.dependencies["@openai/codex"]' package.json)
           actual=$(docker run --rm codex-cli:ci codex --version)
           echo "pinned: ${pinned}"
           echo "actual: ${actual}"
           case "$actual" in
             *"$pinned"*) ;;
-            *) echo "installed codex version does not match the Dockerfile pin"; exit 1 ;;
+            *) echo "installed codex version does not match the package lock"; exit 1 ;;
           esac
 
       - name: Boot app-server and wait for /healthz

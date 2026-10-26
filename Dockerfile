@@ -3,18 +3,11 @@
 # The Codex CLI is a self-contained binary shipped through npm; node exists
 # only to run its launcher shim.
 #
-# Everything here is pinned exactly: syntax frontend and base image by
-# digest, codex by version. Renovate PRs the bumps (renovate.json), CI
+# Syntax frontend and base image are pinned by digest; Codex and its
+# platform packages are locked with integrity hashes. Renovate PRs the bumps (renovate.json), CI
 # proves them (.github/workflows/ci.yml), and merging publishes
 # (.github/workflows/docker-image.yml).
 FROM node:24.22.1-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205
-
-# CODEX_VERSION is the single source of truth for what gets built: CI reads
-# this pin to tag the published image, so tag and installed version can
-# never drift apart. The marker comment below is what Renovate's custom
-# manager matches (renovate.json).
-# renovate: datasource=npm depName=@openai/codex
-ARG CODEX_VERSION=0.164.0
 
 # ca-certificates: the codex binary validates TLS against the system trust
 # store, which node:slim does not ship (node itself uses bundled roots) -
@@ -26,16 +19,17 @@ ARG CODEX_VERSION=0.164.0
 # and uses a bundled copy. (Whether bwrap can actually confine inside Docker
 # depends on the runtime's userns/seccomp settings - chat-style consumers
 # that never run commands don't care.)
-# apt versions are intentionally not pinned: Debian drops superseded point
-# releases from the archive, so version pins rot within weeks. The base
-# image digest freezes them instead; bumping that pin refreshes them, and
-# the weekly image scan covers the window in between.
+# Resolve current packages from authenticated Debian repositories on rebuilds.
+# The base digest freezes the starting filesystem, not these APT operations.
+# Daily scans and controlled rebuilds retain security freshness.
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
     && apt-get install -y --no-install-recommends ca-certificates git bubblewrap \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g "@openai/codex@${CODEX_VERSION}" \
+COPY package.json package-lock.json .npmrc /opt/codex/
+RUN npm ci --prefix /opt/codex --omit=dev --ignore-scripts \
+    && ln -s /opt/codex/node_modules/.bin/codex /usr/local/bin/codex \
     && npm cache clean --force
 
 # Package managers are build tools; this runtime starts Node directly.

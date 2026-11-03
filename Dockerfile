@@ -7,7 +7,7 @@
 # platform packages are locked with integrity hashes. Renovate PRs the bumps (renovate.json), CI
 # proves them (.github/workflows/ci.yml), and merging publishes
 # (.github/workflows/docker-image.yml).
-FROM node:26.12.1-slim@sha256:36793bcbb160a6a16cede1e62b93f84e26b78a972a8a4c0b879c1c12f22761ec
+FROM node:26.13.0-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39
 
 # ca-certificates: the codex binary validates TLS against the system trust
 # store, which node:slim does not ship (node itself uses bundled roots) -
